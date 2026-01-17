@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>至高のスイーツペアリング診断</title>
+    <style>
+        :root {
+            --bg-color: #fdfbf7;
+            --primary-color: #8d6e63;
+            --accent-color: #ffccbc;
+            --text-color: #4e342e;
+            --card-bg: #ffffff;
+            --star-color: #f57c00;
+            --star-bg: #e0e0e0;
+            --surprise-color: #ef5350;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 500px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        h1 { font-size: 24px; color: var(--primary-color); margin-bottom: 20px; }
+        .hidden { display: none; }
+
+        /* 質問画面のスタイル */
+        .progress-bar { width: 100%; height: 6px; background-color: #eee; border-radius: 3px; margin-bottom: 30px; overflow: hidden; }
+        .progress-fill { height: 100%; background-color: var(--primary-color); width: 0%; transition: width 0.3s; }
+        .question-text { font-size: 18px; margin-bottom: 25px; font-weight: bold; line-height: 1.5; }
+        .options { display: flex; flex-direction: column; gap: 12px; }
+        
+        button {
+            background-color: var(--bg-color);
+            border: 2px solid var(--primary-color);
+            padding: 14px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            outline: none;
+        }
+        button:hover { background-color: var(--primary-color); color: white; }
+        .start-btn { background-color: var(--primary-color); color: white; font-weight: bold; padding: 18px 40px; }
+
+        /* 結果画面のスタイル */
+        .pairing-result { font-size: 26px; font-weight: bold; color: var(--primary-color); margin: 15px 0; padding: 20px; border: 2px dashed var(--accent-color); border-radius: 12px; background-color: #fffaf0; }
+        .score-area { margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .star-rating { position: relative; display: inline-block; font-size: 32px; line-height: 1; }
+        .star-rating-front { position: absolute; top: 0; left: 0; overflow: hidden; width: 0%; color: var(--star-color); white-space: nowrap; }
+        .star-rating-back { color: var(--star-bg); }
+        .comment-box { text-align: left; background-color: #f5f5f5; padding: 15px; border-radius: 10px; font-size: 14px; line-height: 1.6; }
+
+        /* 意外性エリア */
+        .surprise-section { margin-top: 25px; padding-top: 20px; border-top: 2px dotted #ddd; text-align: left; }
+        .surprise-badge { background-color: var(--surprise-color); color: white; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 8px; }
+        .surprise-title { font-weight: bold; font-size: 18px; color: var(--surprise-color); margin-bottom: 5px; }
+        .surprise-text { font-size: 13px; color: #666; }
+
+        .fade-in { animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="start-screen">
+        <h1>スイーツペアリング診断</h1>
+        <p>10つの質問から、あなたの好みに合った<br>「王道」と「意外」な組み合わせを算出します。</p>
+        <div style="font-size: 50px; margin: 30px 0;">🍰☕️✨</div>
+        <button class="start-btn" onclick="startQuiz()">診断をはじめる</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <div id="question-container" class="fade-in">
+            <div class="question-text" id="question-text"></div>
+            <div class="options" id="options-container"></div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="hidden fade-in">
+        <div style="font-size: 14px; color: #888;">あなたに最も調和する一杯は…</div>
+        <div class="pairing-result" id="result-drink"></div>
+        
+        <div class="score-area">
+            <div id="score-text" style="font-weight: bold; color: var(--star-color); font-size: 18px;"></div>
+            <div class="star-rating">
+                <div class="star-rating-back">★★★★</div>
+                <div class="star-rating-front" id="star-fill">★★★★</div>
+            </div>
+        </div>
+        
+        <div class="comment-box">
+            <p id="result-science-comment"></p>
+        </div>
+
+        <div id="surprise-area" class="surprise-section hidden">
+            <div class="surprise-badge">意外な発見！</div>
+            <div id="surprise-drink" class="surprise-title"></div>
+            <div id="surprise-comment" class="surprise-text"></div>
+        </div>
+
+        <button class="start-btn" style="margin-top: 30px; width: 100%;" onclick="location.reload()">もう一度診断する</button>
+    </div>
+</div>
+
+<script>
+    /* --- データベース --- */
+    const pairingsDB = {
+        "donut": [
+            { id: "milk", name: "牛乳", score: 4.00, comment: "実験データで満点の4.0を記録。ドーナツの油分を牛乳が洗い流す、科学的に最強の組み合わせです。" },
+            { id: "coffee", name: "ブラックコーヒー", score: 3.89, comment: "甘みと苦味のバランスが絶妙。王道にして至高のペアリングです。" }
+        ],
+        "chou": [
+            { id: "coffee", name: "コーヒー", score: 3.20, comment: "クリームの濃厚な甘さを、コーヒーの苦味が心地よく引き締めます。" },
+            { id: "milk", name: "牛乳", score: 3.11, comment: "生地とクリームの乳成分が牛乳と調和し、まろやかさが倍増します。" }
+        ],
+        "cookie": [
+            { id: "milk", name: "牛乳", score: 3.80, comment: "口の中の水分を補いつつ、バターの風味を引き立てる完璧な相性です。" },
+            { id: "tea", name: "紅茶", score: 3.20, comment: "小麦の香ばしさと紅茶の華やかな香りが口の中で優雅に広がります。" }
+        ],
+        "castella": [
+            { id: "milk", name: "牛乳", score: 3.89, comment: "カステラの卵の風味に牛乳が浸透し、しっとりとした一体感が生まれます。" },
+            { id: "tea", name: "紅茶", score: 3.44, comment: "カステラのしっかりした甘さを、紅茶が上品にまとめ上げます。" }
+        ],
+        "daifuku": [
+            { id: "green_tea", name: "日本茶（緑茶）", score: 3.00, comment: "和菓子にはやはり日本茶。あんこの甘さを緑茶の渋みが引き立てます。" },
+            { id: "tea", name: "紅茶", score: 2.56, comment: "意外な組み合わせですが、紅茶の香りが和の甘みをモダンに変えてくれます。" }
+        ],
+        "choco": [
+            { id: "coffee", name: "コーヒー", score: 3.50, comment: "カカオの苦味とコーヒーの香りが共鳴する、満足感の高いペアです。" },
+            { id: "milk", name: "牛乳", score: 3.30, comment: "濃厚なチョコを牛乳がまろやかに包み込み、後味をスッキリさせます。" }
+        ],
+        "cheese": [
+            { id: "tea", name: "紅茶", score: 3.40, comment: "チーズの酸味と紅茶の渋みは、お互いを高め合う相性の良さです。" },
+            { id: "coffee", name: "コーヒー", score: 3.30, comment: "濃厚なチーズのコクには、深煎りのコーヒーがよく合います。" }
+        ],
+        "pudding": [
+            { id: "coffee", name: "コーヒー", score: 3.10, comment: "カラメルのほろ苦さとコーヒーの苦味は、兄弟のような相性の良さです。" }
+        ]
+    };
+
+    const surpriseDB = {
+        "donut": { name: "リンゴジュース", surpriseScore: 2.11, text: "フルーティーな酸味がドーナツの油分を軽やかにし、後味を爽やかに変えてくれます。" },
+        "chou": { name: "紅茶", surpriseScore: 2.55, text: "コーヒーが定番ですが、紅茶の香りがクリームの輪郭をくっきり際立たせます。" },
+        "cookie": { name: "リンゴジュース", surpriseScore: 2.55, text: "バターの香りとリンゴの酸味が合わさると、まるでアップルパイのような風味に！" },
+        "castella": { name: "オレンジジュース", surpriseScore: 2.60, text: "卵のコクに柑橘の刺激。実験でも「想像以上に新しい味」と評価された組み合わせです。" },
+        "daifuku": { name: "オレンジジュース", surpriseScore: 3.00, text: "【実験で最大の意外性！】あんこの甘さとオレンジの酸味。未知の化学反応を楽しめます。" }
+    };
+
+    /* --- 質問構成 (前回と同じ10問) --- */
+    const questions = [
+        { text: "Q1. コーヒーは飲めますか？", type: "filter", key: "canCoffee", options: [
+            { text: "大好き（ブラックもOK）", value: true },
+            { text: "ミルク等があれば飲める", value: true },
+            { text: "苦手／飲めない", value: false }
+        ]},
+        { text: "Q2. 紅茶は飲めますか？", type: "filter", key: "canTea", options: [
+            { text: "よく飲む", value: true },
+            { text: "たまに飲む", value: true },
+            { text: "苦手／飲めない", value: false }
+        ]},
+        { text: "Q3. 牛乳（ミルク）そのものは好きですか？", type: "filter", key: "canMilk", options: [
+            { text: "好き（そのまま飲める）", value: true },
+            { text: "料理やカフェオレならOK", value: true },
+            { text: "苦手／お腹がごろごろする", value: false }
+        ]},
+        { text: "Q4. 日本茶（緑茶など）は飲みますか？", type: "filter", key: "canGreenTea", options: [
+            { text: "よく飲む", value: true },
+            { text: "あまり飲まない", value: true }
+        ]},
+        { text: "Q5. 甘いものを食べる時、飲み物に求める役割は？", type: "pref", options: [
+            { text: "口の中をさっぱりさせたい", value: "refresh" },
+            { text: "甘さを引き立ててほしい", value: "enhance" }
+        ]},
+        { text: "Q6. 濃厚なスイーツは好きですか？", type: "pref", options: [
+            { text: "大好き", value: "rich" },
+            { text: "どちらかと言えばさっぱり派", value: "light" }
+        ]},
+        { text: "Q7. クリーム系はよく食べますか？", type: "pref", options: [
+            { text: "よく食べる", value: "yes" },
+            { text: "あまり食べない", value: "no" }
+        ]},
+        { text: "Q8. チョコ系はよく選びますか？", type: "pref", options: [
+            { text: "よく選ぶ", value: "yes" },
+            { text: "あまり選ばない", value: "no" }
+        ]},
+        { text: "Q9. 和菓子はよく食べますか？", type: "pref", options: [
+            { text: "よく食べる", value: "yes" },
+            { text: "あまり食べない", value: "no" }
+        ]},
+        { text: "Q10. 今、食べようとしているスイーツを選んでください。", type: "target", options: [
+            { text: "ドーナツ", value: "donut" }, { text: "シュークリーム", value: "chou" },
+            { text: "クッキー", value: "cookie" }, { text: "カステラ", value: "castella" },
+            { text: "大福", value: "daifuku" }, { text: "チョコケーキ", value: "choco" },
+            { text: "チーズケーキ", value: "cheese" }, { text: "プリン", value: "pudding" }
+        ]}
+    ];
+
+    let currentIdx = 0;
+    let prefs = { canCoffee: true, canTea: true, canMilk: true, canGreenTea: true };
+
+    function startQuiz() {
+        document.getElementById("start-screen").classList.add("hidden");
+        document.getElementById("quiz-screen").classList.remove("hidden");
+        showQuestion();
+    }
+
+    function showQuestion() {
+        const q = questions[currentIdx];
+        document.getElementById("question-text").innerText = q.text;
+        const opts = document.getElementById("options-container");
+        opts.innerHTML = "";
+        document.getElementById("progress").style.width = `${(currentIdx / questions.length) * 100}%`;
+
+        q.options.forEach(o => {
+            const b = document.createElement("button");
+            b.innerText = o.text;
+            b.onclick = () => {
+                if (q.type === "filter") prefs[q.key] = o.value;
+                if (q.type === "target") {
+                    prefs.target = o.value;
+                    showResult();
+                    return;
+                }
+                currentIdx++;
+                showQuestion();
+            };
+            opts.appendChild(b);
+        });
+    }
+
+    function showResult() {
+        document.getElementById("quiz-screen").classList.add("hidden");
+        document.getElementById("result-screen").classList.remove("hidden");
+
+        const target = prefs.target;
+        const candidates = pairingsDB[target];
+        let best = null;
+
+        // 調和度のフィルタリング
+        for (let d of candidates) {
+            if (d.id === "coffee" && !prefs.canCoffee) continue;
+            if (d.id === "milk" && !prefs.canMilk) continue;
+            if (d.id === "tea" && !prefs.canTea) continue;
+            if (d.id === "green_tea" && !prefs.canGreenTea) continue;
+            best = d;
+            break;
+        }
+        if (!best) best = { name: "お水", score: "-", comment: "素材の味をそのまま楽しむのが一番かもしれません。" };
+
+        // 調和度表示（4段階星評価）
+        document.getElementById("result-drink").innerText = best.name;
+        if(best.score !== "-") {
+            const s = parseFloat(best.score);
+            document.getElementById("score-text").innerText = `調和度: ${s.toFixed(2)} / 4.0`;
+            document.getElementById("star-fill").style.width = `${(s / 4.0) * 100}%`;
+        }
+        document.getElementById("result-science-comment").innerHTML = `<strong>【分析】</strong><br>${best.comment}`;
+
+        // 意外性表示
+        const surprise = surpriseDB[target];
+        const sArea = document.getElementById("surprise-area");
+        if (surprise) {
+            sArea.classList.remove("hidden");
+            document.getElementById("surprise-drink").innerText = `× ${surprise.name}`;
+            document.getElementById("surprise-comment").innerText = `${surprise.text}（意外性スコア: ${surprise.surpriseScore}）`;
+        } else {
+            sArea.classList.add("hidden");
+        }
+    }
+</script>
+</body>
+</html>
